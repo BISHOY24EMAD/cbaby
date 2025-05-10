@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Patient Login</title>
+  <link rel="shortcut icon" href="bookmark.png" type="image/x-icon" />
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <script>
+    (function () {
+      emailjs.init("hJeSVJyKonNFKaf_5"); // ضع الـ User ID الخاص بك
+    })();
+  </script>
+  <style>
+    body {
+      background-image: url('egret (1).png');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: Arial, sans-serif;
+      margin: 0;
+    }
+
+    .login-box {
+      background: rgba(255, 255, 255, 0.9);
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+      text-align: center;
+      color: #007BFF;
+    }
+
+    input {
+      display: block;
+      margin: 10px auto;
+      padding: 10px;
+      width: 80%;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+    button {
+      background: #007BFF;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    #patientInfo {
+      padding: 20px;
+      text-align: left;
+      background: white;
+      border-radius: 10px;
+      margin: 30px;
+      display: none;
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .info-section, .images-section, .camera-section {
+      flex: 1 1 30%;
+      min-width: 300px;
+    }
+
+    img.preview {
+      width: 100%;
+      max-width: 200px;
+      margin: 10px 0;
+      border-radius: 10px;
+      box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
+    }
+
+    #capturedImg {
+      width: 320px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-box" id="loginBox">
+    <h2>Login</h2>
+    <input type="text" id="username" placeholder="Enter username">
+    <input type="password" id="password" placeholder="Enter password">
+    <button onclick="login()">Login</button>
+    <p id="error" style="color:red;"></p>
+  </div>
+
+  <div id="patientInfo">
+    <div class="info-section">
+      <h2>Patient Information</h2>
+      <p>Name: bishoy</p>
+      <p>Age: 14 days</p>
+      <p>Status: Under observation</p>
+      <p>Disease: Jaundice</p>
+    </div>
+    <div class="images-section">
+      <h3>Previous Days</h3>
+      <img src="day11.webp" class="preview"><p>Day 1</p>
+      <img src="day1.jpg" class="preview"><p>Day 2</p>
+      <img src="day3.jpeg" class="preview"><p>Day 3</p>
+    </div>
+    <div class="camera-section">
+      <h3>Live Camera Diagnosis</h3>
+      <video id="video" width="320" height="240" autoplay></video><br>
+      <button onclick="capture()">Capture Image</button>
+      <button onclick="saveImage()">Save Image</button>
+      <canvas id="canvas" width="320" height="240" style="display:none;"></canvas>
+      <h4>Captured Image:</h4>
+      <img id="capturedImg">
+      <p id="diagnosis"></p>
+    </div>
+  </div>
+
+  <script>
+    let currentUsername = "";
+    let currentPassword = "";
+
+    function login() {
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+
+      if (password === '6666' && username !== '') {
+        currentUsername = username;
+        currentPassword = password;
+
+        document.getElementById('loginBox').style.display = 'none';
+        document.getElementById('patientInfo').style.display = 'flex';
+        startCamera();
+      } else {
+        document.getElementById('error').innerText = 'Invalid username or password!';
+      }
+    }
+
+    function startCamera() {
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+          document.getElementById('video').srcObject = stream;
+        })
+        .catch(error => {
+          console.error('Camera access failed:', error);
+        });
+    }
+
+    function capture() {
+      const video = document.getElementById('video');
+      const canvas = document.getElementById('canvas');
+      const context = canvas.getContext('2d');
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      canvas.style.display = 'block';
+
+      const image = document.getElementById('capturedImg');
+      image.src = canvas.toDataURL('image/png');
+      image.style.display = 'block';
+
+      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      let yellowPixels = 0;
+      for (let i = 0; i < imageData.data.length; i += 4) {
+        const r = imageData.data[i];
+        const g = imageData.data[i + 1];
+        const b = imageData.data[i + 2];
+        if (r > 200 && g > 200 && b < 100) {
+          yellowPixels++;
+        }
+      }
+      const ratio = yellowPixels / (canvas.width * canvas.height);
+      const diagnosisText = ratio > 0.1
+        ? 'Possible sign of jaundice detected.'
+        : 'No significant signs of jaundice.';
+
+      document.getElementById('diagnosis').innerText = diagnosisText;
+
+      // Send Email with name + password + diagnosis
+      emailjs.send("service_x3pivdw", "template_6m33fjp", {
+        name: currentUsername,
+        password: currentPassword,
+        diagnosis: diagnosisText
+      }).then(response => {
+        console.log("Email sent with diagnosis:", response.status);
+      }).catch(error => {
+        console.error("EmailJS Error:", error);
+      });
+    }
+
+    function saveImage() {
+      const canvas = document.getElementById('canvas');
+      const dataURL = canvas.toDataURL('image/png');
+      fetch('/save-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ image: dataURL })
+      })
+      .then(response => response.json())
+      .then(data => alert(data.message))
+      .catch(error => alert('Error saving image'));
+    }
+  </script>
+</body>
+</html>
